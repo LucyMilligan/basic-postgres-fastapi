@@ -3,22 +3,8 @@ from datetime import datetime
 from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
+from models import Activity, ActivityCreate, ActivityUpdate, User, UserCreate, UserPublic, UserUpdate
 
-
-#create database models - pydantic sqlmodel, with primary keys indicated
-
-class User(SQLModel, table=True):
-    user_id: int = Field(primary_key=True)
-    name: str
-    email: str
-
-class Activity(SQLModel, table=True):
-    id: int = Field(primary_key=True)
-    user_id: int
-    # user_id: int = Field(foreign_key="User.user_id")
-    activity: str
-    distance_km: float
-    date_updated: str
 
 #create an engine - sqlalchemy engine (holds connection to db)
 #using sqlite here as it is more simple
@@ -49,48 +35,75 @@ def on_startup():
 
 #create a user / activity
 #can use the same sqlmodel as a pydantic model
-@app.post("/users/")
-def create_user(user: User, session: SessionDep) -> User:
-    session.add(user)
+@app.post("/users/", response_model=UserPublic)
+def create_user(user: UserCreate, session: SessionDep):
+    db_user = User.model_validate(user)
+    session.add(db_user)
     session.commit()
-    session.refresh(user)
-    return user
+    session.refresh(db_user)
+    return db_user
 
-@app.post("/activities/")
-def create_activity(activity: Activity, session: SessionDep) -> Activity:
-    session.add(activity)
+@app.post("/activities/", response_model=Activity)
+def create_activity(activity: ActivityCreate, session: SessionDep):
+    db_activity = Activity.model_validate(activity)
+    session.add(db_activity)
     session.commit()
-    session.refresh(activity)
-    return activity
+    session.refresh(db_activity)
+    return db_activity
 
 
 #get users/activities with paginated results
-@app.get("/users/")
-def get_users(session: SessionDep, offset: int = 0, limit: int = 10) -> list[User]:
+@app.get("/users/", response_model=list[UserPublic])
+def get_users(session: SessionDep, offset: int = 0, limit: int = 10):
     users = session.exec(select(User).offset(offset).limit(limit)).all()
     return users
 
 @app.get("/activities/")
-def get_users(session: SessionDep, offset: int = 0, limit: int = 10) -> list[Activity]:
+def get_activities(session: SessionDep, offset: int = 0, limit: int = 10) -> list[Activity]:
     activities = session.exec(select(Activity).offset(offset).limit(limit)).all()
     return activities
 
 
 #get user/activity by id
-@app.get("/users/{user_id}")
-def get_user_by_user_id(user_id: int, session: SessionDep) -> User:
+@app.get("/users/{user_id}", response_model=UserPublic)
+def get_user_by_user_id(user_id: int, session: SessionDep):
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
-@app.get("/activities/{id}")
-def get_activity_by_activity_id(id: int, session: SessionDep) -> Activity:
+@app.get("/activities/{id}", response_model=Activity)
+def get_activity_by_activity_id(id: int, session: SessionDep):
     activity = session.get(Activity, id)
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
     return activity
 
+
+#update a user/activity
+@app.patch("/users/{user_id}", response_model=UserPublic)
+def update_user(user_id: int, user: UserUpdate, session: SessionDep):
+    user_db = session.get(User, user_id)
+    if not user_db:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_data = user.model_dump(exclude_unset=True) #only includes values sent by the client
+    user_db.sqlmodel_update(user_data)
+    session.add(user_db)
+    session.commit()
+    session.refresh(user_db)
+    return user_db
+
+@app.patch("/activities/{id}", response_model=Activity)
+def update_activity(id: int, activity: ActivityUpdate, session: SessionDep):
+    activity_db = session.get(Activity, id)
+    if not activity_db:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    activity_data = activity.model_dump(exclude_unset=True)
+    activity_db.sqlmodel_update(activity_data)
+    session.add(activity_db)
+    session.commit()
+    session.refresh(activity_db)
+    return activity_db
 
 #delete a user/activity
 @app.delete("/users/{user_id}")
@@ -100,7 +113,7 @@ def delete_user(user_id: int, session: SessionDep):
         raise HTTPException(status_code=404, detail="User not found")
     session.delete(user)
     session.commit()
-    return {"ok": True}
+    return {"message": f"User_id {user_id} deleted"}
 
 @app.delete("/activities/{id}")
 def delete_activity(id: int, session: SessionDep):
@@ -109,5 +122,5 @@ def delete_activity(id: int, session: SessionDep):
         raise HTTPException(status_code=404, detail="Activity not found")
     session.delete(activity)
     session.commit()
-    return {"ok": True}
+    return {"message": f"Activity id {id} deleted"}
 
