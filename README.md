@@ -10,6 +10,12 @@ Create a virtual environment and install the requirements
 
 ## To run the application
 
+If database does not exist, run:
+
+```psql -f create.sql```
+
+To run the application:
+
 ```uvicorn main:app --reload --port <port: int>```
 
 To test the requests, use the browser and localhost:<port: int>/docs

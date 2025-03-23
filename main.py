@@ -2,17 +2,23 @@ from typing import Annotated
 from datetime import datetime
 from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlmodel import Field, Session, SQLModel, create_engine, select
+import os
+from dotenv import load_dotenv
 
 from models import Activity, ActivityCreate, ActivityUpdate, User, UserCreate, UserPublic, UserUpdate
 
+load_dotenv()
 
 #create an engine - sqlalchemy engine (holds connection to db)
-#using sqlite here as it is more simple
-sqlite_file_name = "basic_database.db"
-sqlite_url = f"sqlite:///{sqlite_file_name}"
+#sqlite:
+# sqlite_file_name = "basic_database.db"
+# sqlite_url = f"sqlite:///{sqlite_file_name}"
 
-connect_args = {"check_same_thread": False} #allows fastapi to use the same sqlite database in different threads
-engine = create_engine(sqlite_url, connect_args=connect_args)
+#postgres:
+postgres_url = os.getenv("DB_URL")
+
+# connect_args = {"check_same_thread": False} #allows fastapi to use the same sqlite database in different threads
+engine = create_engine(postgres_url)
 
 #create tables for all table models
 def create_db_and_tables():
