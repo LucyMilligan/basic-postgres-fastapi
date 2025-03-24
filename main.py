@@ -41,7 +41,7 @@ def on_startup():
 
 #create a user / activity
 #can use the same sqlmodel as a pydantic model
-@app.post("/users/", response_model=UserPublic)
+@app.post("/users/", response_model=User)
 def create_user(user: UserCreate, session: SessionDep):
     db_user = User.model_validate(user)
     session.add(db_user)
