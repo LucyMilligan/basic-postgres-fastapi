@@ -1,6 +1,6 @@
 # basic-postgres-fastapi
 
-Practice project to try out creating an API with FastAPI and using SQLmodels to connect to a Postgres database.
+Practice project to try out creating an API with FastAPI and using SQLmodels to connect to a Postgres database. This is in preparation for the fitness_tracker project.
 
 ## Setup
 
