@@ -6,7 +6,7 @@ Practice project to try out creating an API with FastAPI and using SQLmodels to 
 
 Create a virtual environment and install the requirements
 
-```pip install requirements.txt```
+```pip install -r requirements.txt```
 
 ## To run the application
 
