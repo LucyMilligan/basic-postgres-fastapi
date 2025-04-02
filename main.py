@@ -110,7 +110,11 @@ def update_user(user_id: int, user: UserUpdate, session: SessionDep):
 
 @app.post("/activities/", response_model=Activity)
 def create_activity(activity: ActivityCreate, session: SessionDep):
-    """Endpoint that allows a user to create an activity"""
+    """Endpoint that allows a user to create an activity, with the request body
+    validated against the Activity model.
+
+    If any of the fields are in the incorrect format, an exception with 422
+    status code is raised."""
     try:
         db_activity = Activity.model_validate(activity)
         session.add(db_activity)
@@ -133,7 +137,8 @@ def update_activity(id: int, activity: ActivityUpdate, session: SessionDep):
 
     If the ID does not exist, an exception with 404 status code is raised.
 
-    If any of the fields are in the incorrect format, a 422 status code is raised.
+    If any of the fields are in the incorrect format, an exception with
+    422 status code is raised.
     """  
     activity_db = session.get(Activity, id)
     if not activity_db:
