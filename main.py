@@ -1,6 +1,8 @@
 from typing import Annotated
 from datetime import datetime
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.exceptions import ResponseValidationError
+from pydantic_core import ValidationError
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 import os
 from dotenv import load_dotenv
@@ -52,16 +54,6 @@ def create_user(user: UserCreate, session: SessionDep):
     session.commit()
     session.refresh(db_user)
     return db_user
-
-
-@app.post("/activities/", response_model=Activity)
-def create_activity(activity: ActivityCreate, session: SessionDep):
-    """Endpoint that allows a user to create an activity"""
-    db_activity = Activity.model_validate(activity)
-    session.add(db_activity)
-    session.commit()
-    session.refresh(db_activity)
-    return db_activity
 
 
 @app.get("/users/", response_model=list[UserPublic])
@@ -116,6 +108,23 @@ def update_user(user_id: int, user: UserUpdate, session: SessionDep):
     return user_db
 
 
+@app.post("/activities/", response_model=Activity)
+def create_activity(activity: ActivityCreate, session: SessionDep):
+    """Endpoint that allows a user to create an activity"""
+    try:
+        db_activity = Activity.model_validate(activity)
+        session.add(db_activity)
+        session.commit()
+        session.refresh(db_activity)
+        return db_activity
+    except ValueError as e:
+        error_messages = [f"{err['loc'][0]} - {err['msg']}" for err in e.errors()]
+        raise HTTPException(
+            status_code=422,
+            detail=f"Format of data incorrect: {", ".join(error_messages)}"
+        )
+
+
 @app.patch("/activities/{id}", response_model=Activity)
 def update_activity(id: int, activity: ActivityUpdate, session: SessionDep):
     """Endpoint that allows an activity of specified id to be modified. All
@@ -123,16 +132,21 @@ def update_activity(id: int, activity: ActivityUpdate, session: SessionDep):
     original values remain.
 
     If the ID does not exist, an exception with 404 status code is raised.
+
+    If any of the fields are in the incorrect format, a 422 status code is raised.
     """  
     activity_db = session.get(Activity, id)
     if not activity_db:
         raise HTTPException(status_code=404, detail="Activity not found")
     activity_data = activity.model_dump(exclude_unset=True)
+    # don't need to validate against Activity because model_dump is validating against 
+    # ActivityUpdate (optional fields required which Activity doesn't have)
     activity_db.sqlmodel_update(activity_data)
     session.add(activity_db)
     session.commit()
     session.refresh(activity_db)
     return activity_db
+
 
 
 @app.delete("/users/{user_id}")

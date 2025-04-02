@@ -1,6 +1,8 @@
 # info: https://sqlmodel.tiangolo.com/tutorial/fastapi/tests/#override-a-dependency
+
 # given this is a practice repo - only tests for users endpoint are included below
-# to practice testing the sqlmodels and endpoints
+# to practice testing the sqlmodels and endpoints. Tests for checking the field constraints
+# also included
 
 import pytest  
 from fastapi.testclient import TestClient
@@ -8,7 +10,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
 from main import app, get_session
-from models import User
+from models import Activity, User
 
 
 @pytest.fixture(name="session")  
@@ -137,3 +139,77 @@ class TestDeleteUser:
         assert response.status_code == 200
         assert users_in_db is None
         assert data == {"message": "User_id 1 deleted"}
+
+
+class TestCreateActivity:
+    def test_create_activity_raises_422_for_incorrect_date_field(self, session: Session, client: TestClient):
+        activity_test = {
+            "user_id": 1,
+            "date": "25 March 25", #incorrect format
+            "time": "17:30",
+            "activity": "run",
+            "activity_type": "trail",
+            "moving_time": "00:00:30",
+            "distance_km": 5,
+            "perceived_effort": 5,
+            "elevation_m": 5
+        }
+        response = client.post("/activities/", json=activity_test)
+        data = response.json()
+        assert response.status_code == 422
+        assert "Format of data incorrect:" and "date" in data["detail"]
+
+    def test_create_activity_raises_422_for_multiple_incorrect_fields(self, session: Session, client: TestClient):
+        activity_test = {
+            "user_id": 1,
+            "date": "25 March 25", #incorrect format
+            "time": "7.30pm", #incorrect format
+            "activity": "running", #incorrect format
+            "activity_type": "trail",
+            "moving_time": "30mins 5secs", #incorrect format
+            "distance_km": 5,
+            "perceived_effort": 100, #incorrect format
+            "elevation_m": 5
+        }
+        response = client.post("/activities/", json=activity_test)
+        data = response.json()
+        assert response.status_code == 422
+        assert "Format of data incorrect:" in data["detail"]
+        assert "date" in data["detail"]
+        assert "time" in data["detail"]
+        assert "activity" in data["detail"]
+        assert "moving_time" in data["detail"]
+        assert "perceived_effort" in data["detail"]
+
+
+class TestUpdateActivity:
+    def test_update_activity_raises_422_for_incorrect_fields(self, session: Session, client: TestClient):
+        activity_test = Activity(
+            user_id= 1,
+            date="2025/03/04",
+            time="17:30",
+            activity="run",
+            activity_type="trail",
+            moving_time="00:00:30",
+            distance_km=5,
+            perceived_effort=5,
+            elevation_m=5
+        )
+
+        activity_update = {
+            "date": "25 March 2024",
+            "time": "5pm",
+            "perceived_effort": 15
+        }
+
+        session.add(activity_test)
+        session.commit()
+
+        response = client.patch("/activities/1", json=activity_update)
+        data = response.json()["detail"]
+
+        assert response.status_code == 422
+        assert data[0]["type"] == "string_pattern_mismatch"
+        assert "date" in data[0]["loc"]
+        assert "time" in data[1]["loc"]
+        assert "perceived_effort" in data[2]["loc"]
