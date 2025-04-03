@@ -197,9 +197,11 @@ class TestUpdateActivity:
         )
 
         activity_update = {
-            "date": "25 March 2024",
+            "date": 2025,
             "time": "5pm",
-            "perceived_effort": 15
+            "moving_time": 15,
+            "activity": "running",
+            "perceived_effort": 100
         }
 
         session.add(activity_test)
@@ -209,7 +211,9 @@ class TestUpdateActivity:
         data = response.json()["detail"]
 
         assert response.status_code == 422
-        assert data[0]["type"] == "string_pattern_mismatch"
+        assert data[0]["type"] == "value_error"
         assert "date" in data[0]["loc"]
         assert "time" in data[1]["loc"]
-        assert "perceived_effort" in data[2]["loc"]
+        assert "activity" in data[2]["loc"]
+        assert "moving_time" in data[3]["loc"]
+        assert "perceived_effort" in data[4]["loc"]
